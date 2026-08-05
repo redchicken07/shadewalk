@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>그늘길 — 그늘 따라 걷는 길찾기</title>
+<meta name="description" content="건물 그림자를 시간대별로 계산해서, 해를 피해 그늘로 걷는 경로와 산책 코스를 추천하는 웹앱">
+
+<!-- SNS 링크 미리보기 (og.jpg는 tools/make-og.html에서 만들어 맨 위 폴더에 넣으세요) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="그늘길 — 해를 피해, 그늘 따라 걷기">
+<meta property="og:description" content="건물 높이와 태양 위치로 시간대별 그림자를 계산해서, 그늘이 가장 많은 길과 산책 코스를 알려줘요. 지하도까지 포함해서요.">
+<meta property="og:image" content="og.jpg">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="그늘길 — 해를 피해, 그늘 따라 걷기">
+<meta name="twitter:description" content="건물 그림자를 시간대별로 계산하는 산책·길찾기 웹앱">
+<meta name="twitter:image" content="og.jpg">
+<meta name="theme-color" content="#0d9488">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌳</text></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <!-- ───────── 왼쪽 패널 ───────── -->
+  <aside id="panel">
+    <header id="panel-head">
+      <div class="logo">
+        <span class="logo-emoji">🌳</span>
+        <div>
+          <h1>그늘길</h1>
+          <p class="tagline">해를 피해, 그늘 따라 시원하게 걷기</p>
+        </div>
+      </div>
+      <button id="btn-settings" class="icon-btn" title="설정">⚙️</button>
+    </header>
+
+    <div id="settings-pop" class="pop hidden">
+      <div class="pop-row">
+        <label>기본 건물 높이<br><small>OSM에 높이 정보가 없을 때 가정</small></label>
+        <select id="sel-h">
+          <option value="6">낮게 · 6m (2층)</option>
+          <option value="10" selected>보통 · 10m (3층)</option>
+          <option value="16">높게 · 16m (5층)</option>
+          <option value="24">도심 · 24m (8층)</option>
+        </select>
+      </div>
+      <div class="pop-row">
+        <label>걷는 속도</label>
+        <select id="sel-speed">
+          <option value="3.5">느긋하게 · 3.5km/h</option>
+          <option value="4.5" selected>보통 · 4.5km/h</option>
+          <option value="5.5">빠르게 · 5.5km/h</option>
+        </select>
+      </div>
+      <div class="pop-row">
+        <label>그림자 표시</label>
+        <input type="checkbox" id="chk-shadow" checked>
+      </div>
+    </div>
+
+    <!-- 지역 선택 -->
+    <button id="btn-region" class="region-btn">
+      <span class="region-pin">📍</span>
+      <span id="region-label">지역 불러오는 중…</span>
+      <span class="region-caret">▾</span>
+    </button>
+    <div id="region-pop" class="pop hidden">
+      <input id="inp-region-filter" type="text" placeholder="지역 이름으로 찾기 (예: 강남, 부산대)" autocomplete="off">
+      <div id="region-list"></div>
+    </div>
+
+    <nav id="tabs">
+      <button id="tab-route-btn" class="tab-btn active">🧭 그늘 경로</button>
+      <button id="tab-course-btn" class="tab-btn">🚶 산책 코스</button>
+    </nav>
+
+    <!-- ── 경로 탭 ── -->
+    <section id="tab-route" class="tab-body">
+      <div class="field">
+        <span class="dot dot-from"></span>
+        <div class="inp-wrap">
+          <input id="inp-from" type="text" placeholder="출발지 검색 (예: 시청역)" autocomplete="off">
+          <div id="dd-from" class="dropdown hidden"></div>
+        </div>
+        <button id="btn-geo-from" class="icon-btn" title="현재 위치">⌖</button>
+        <button id="btn-pick-from" class="icon-btn" title="지도에서 선택">📍</button>
+      </div>
+      <div class="swap-row"><button id="btn-swap" class="icon-btn" title="출발지·도착지 바꾸기">⇅</button></div>
+      <div class="field">
+        <span class="dot dot-to"></span>
+        <div class="inp-wrap">
+          <input id="inp-to" type="text" placeholder="도착지 검색 또는 지도에서 선택" autocomplete="off">
+          <div id="dd-to" class="dropdown hidden"></div>
+        </div>
+        <button id="btn-pick-to" class="icon-btn" title="지도에서 선택">📍</button>
+      </div>
+
+      <button id="btn-route" class="primary-btn">🌳 경로 찾기 (3가지 비교)</button>
+
+      <div id="route-result" class="result hidden">
+        <div class="opts-head">경로 3가지를 비교해 보세요 — 눌러서 지도에 표시</div>
+        <div id="route-opts"></div>
+
+        <div class="strip-wrap">
+          <div id="rr-strip" class="strip"></div>
+          <div class="strip-legend">
+            <span><i class="sw sw-shade"></i>그늘</span>
+            <span><i class="sw sw-sun"></i>햇빛</span>
+            <span><i class="sw sw-cov"></i>지하·실내</span>
+          </div>
+        </div>
+        <p id="rr-arrive" class="rr-line"></p>
+        <p id="rr-compare" class="rr-line"></p>
+
+        <div class="fc-wrap">
+          <div class="fc-head">
+            <b>🌡 언제 나가면 시원할까?</b>
+            <small>출발 시각별 그늘 비율 — 막대를 누르면 그 시각으로 이동</small>
+          </div>
+          <div id="fc-chart" class="fc-chart"></div>
+          <p id="fc-best" class="fc-best"></p>
+        </div>
+
+        <p class="hint">마커를 끌면 경로가 다시 계산돼요. 아래 시간 슬라이더로 미래 출발도 시험해 보세요.</p>
+      </div>
+    </section>
+
+    <!-- ── 산책 코스 탭 ── -->
+    <section id="tab-course" class="tab-body hidden">
+      <div class="field">
+        <span class="dot dot-course"></span>
+        <div class="inp-wrap">
+          <input id="inp-course" type="text" placeholder="시작점 검색 (미지정 시 지도 중심)" autocomplete="off">
+          <div id="dd-course" class="dropdown hidden"></div>
+        </div>
+        <button id="btn-geo-course" class="icon-btn" title="현재 위치">⌖</button>
+        <button id="btn-pick-course" class="icon-btn" title="지도에서 선택">📍</button>
+      </div>
+
+      <div class="chips" id="course-chips">
+        <button class="chip" data-min="15">15분</button>
+        <button class="chip active" data-min="30">30분</button>
+        <button class="chip" data-min="45">45분</button>
+        <button class="chip" data-min="60">60분</button>
+      </div>
+
+      <button id="btn-course" class="primary-btn">🍃 그늘 산책 코스 추천</button>
+      <p class="hint">시작점에서 출발해 한 바퀴 돌아오는 코스를, 지나는 시각의 그림자까지 계산해 그늘이 많은 순서로 골라 드려요.</p>
+
+      <div id="course-cards"></div>
+    </section>
+
+    <footer id="panel-foot">
+      <span id="data-info">데이터를 아직 불러오지 않았어요</span>
+      <span class="credits">지도 데이터 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> 기여자 (ODbL) · 타일 © CARTO · 태양위치 SunCalc</span>
+    </footer>
+  </aside>
+  <button id="btn-panel-toggle" title="패널 접기/펴기">‹</button>
+
+  <!-- ───────── 하단 시간 바 ───────── -->
+  <div id="timebar">
+    <button id="btn-now" class="mini-btn">지금</button>
+    <button id="btn-play" class="mini-btn" title="하루 그림자 흐름 재생">▶</button>
+    <input id="rng-time" type="range" min="0" max="720" step="10" value="0">
+    <div id="lbl-time">--:--</div>
+  </div>
+
+  <!-- 커버 범위 밖으로 나갔을 때 -->
+  <button id="btn-reload" class="float-btn hidden">📍 가까운 지원 지역으로 이동</button>
+
+  <!-- 범례 -->
+  <div id="legend">
+    <span><i class="sw sw-shadowfill"></i>건물 그림자</span>
+    <span><i class="sw sw-shade"></i>그늘길</span>
+    <span><i class="sw sw-sun"></i>햇빛길</span>
+    <span><i class="sw sw-cov"></i>지하·실내</span>
+  </div>
+
+  <!-- 토스트 / 로딩 -->
+  <div id="toast" class="hidden"></div>
+  <div id="busy" class="hidden">
+    <div class="spinner"></div>
+    <div id="busy-msg">준비 중…</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="js/util.js"></script>
+<script src="js/codec.js"></script>
+<script src="js/sun.js"></script>
+<script src="js/osm.js"></script>
+<script src="js/regions.js"></script>
+<script src="js/shadow.js"></script>
+<script src="js/graph.js"></script>
+<script src="js/course.js"></script>
+<script src="js/geocode.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

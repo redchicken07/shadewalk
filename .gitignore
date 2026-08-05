@@ -1,0 +1,10 @@
+# Overpass 원본 응답 캐시 — 데이터를 다시 구울 때만 쓰는 임시 파일 (수십 MB)
+# data/ 안의 구워진 결과물은 반드시 커밋해야 앱이 동작한다.
+.cache/
+
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
