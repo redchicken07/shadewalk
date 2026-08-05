@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>그늘길 — 공유 카드 만들기</title>
+<style>
+  body{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;background:#f8fafc;
+       margin:0;padding:28px;color:#1e293b;display:flex;flex-direction:column;align-items:center;gap:16px}
+  h1{font-size:20px;margin:0}
+  p{font-size:14px;color:#64748b;margin:0;text-align:center;line-height:1.6;max-width:620px}
+  canvas{width:min(100%,700px);height:auto;border-radius:14px;box-shadow:0 8px 30px rgba(15,23,42,.18)}
+  button{border:none;border-radius:11px;background:#0d9488;color:#fff;font:inherit;font-weight:700;
+         font-size:15px;padding:12px 26px;cursor:pointer;box-shadow:0 6px 16px rgba(13,148,136,.35)}
+  button:hover{filter:brightness(1.06)}
+  code{background:#e2e8f0;border-radius:5px;padding:1px 6px;font-size:13px}
+</style>
+</head>
+<body>
+<h1>🌳 공유 카드(og.jpg) 만들기</h1>
+<p>인스타·X·쓰레드에 링크를 올릴 때 뜨는 미리보기 이미지예요.<br>
+아래 버튼을 누르면 <code>og.jpg</code>가 저장됩니다. 그 파일을 프로젝트 <b>맨 위 폴더</b>에 넣고 커밋하세요.</p>
+<canvas id="c" width="1200" height="630"></canvas>
+<button id="save">⬇ og.jpg 저장하기</button>
+
+<script>
+const c = document.getElementById('c'), x = c.getContext('2d');
+const W = 1200, H = 630;
+
+// 배경 — 왼쪽은 햇빛, 오른쪽은 그늘
+const bg = x.createLinearGradient(0, 0, W, H);
+bg.addColorStop(0, '#fbbf24'); bg.addColorStop(.42, '#f59e0b');
+bg.addColorStop(.62, '#0f766e'); bg.addColorStop(1, '#134e4a');
+x.fillStyle = bg; x.fillRect(0, 0, W, H);
+
+// 해
+const sun = x.createRadialGradient(150, 118, 8, 150, 118, 135);
+sun.addColorStop(0, 'rgba(255,255,255,.95)'); sun.addColorStop(1, 'rgba(255,255,255,0)');
+x.fillStyle = sun; x.beginPath(); x.arc(150, 118, 135, 0, 7); x.fill();
+
+// 건물과 길게 드리운 그림자 (해가 왼쪽 위 → 그림자는 오른쪽 아래로)
+const blds = [[250,330,70,180],[350,270,90,240],[470,360,60,150],[560,240,100,270],
+              [690,330,75,180],[795,300,85,210],[910,370,65,140],[1000,260,95,250]];
+for (const [bx, by, bw, bh] of blds) {
+  x.fillStyle = 'rgba(15,32,60,.34)';
+  x.beginPath();
+  x.moveTo(bx, by + bh); x.lineTo(bx + bw, by + bh);
+  x.lineTo(bx + bw + bh * .85, by + bh + bh * .42);
+  x.lineTo(bx + bh * .85, by + bh + bh * .42);
+  x.closePath(); x.fill();
+}
+for (const [bx, by, bw, bh] of blds) {
+  x.fillStyle = 'rgba(255,255,255,.14)'; x.fillRect(bx, by, bw, bh);
+  x.fillStyle = 'rgba(255,255,255,.22)'; x.fillRect(bx, by, bw, 6);
+}
+
+// 그늘을 따라 이어지는 경로선
+x.lineCap = 'round'; x.lineJoin = 'round';
+const path = [[190,560],[330,530],[470,545],[610,515],[750,535],[890,505],[1040,525]];
+const stroke = (color, wid) => {
+  x.strokeStyle = color; x.lineWidth = wid;
+  x.beginPath(); path.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.stroke();
+};
+stroke('rgba(255,255,255,.35)', 20);
+stroke('#0b3d38', 11);
+
+// 글자
+x.fillStyle = 'rgba(10,25,45,.30)';
+x.font = '800 118px "Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+x.fillText('그늘길', 84, 372);
+x.fillStyle = '#fff';
+x.fillText('그늘길', 80, 368);
+
+x.font = '600 40px "Malgun Gothic","Apple SD Gothic Neo",sans-serif';
+x.fillStyle = 'rgba(255,255,255,.95)';
+x.fillText('해를 피해, 그늘 따라 걷기', 84, 432);
+
+x.font = '500 27px "Malgun Gothic",sans-serif';
+x.fillStyle = 'rgba(255,255,255,.8)';
+x.fillText('건물 그림자를 시간대별로 계산하는 산책·길찾기', 84, 478);
+
+document.getElementById('save').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.download = 'og.jpg';
+  a.href = c.toDataURL('image/jpeg', 0.85);
+  a.click();
+});
+</script>
+</body>
+</html>
